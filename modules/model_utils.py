@@ -98,7 +98,8 @@ def train_model(model, train_loader, val_loader, num_epochs=50, learning_rate=0.
     
     print(f"Starting training for {num_epochs} epochs...")
     print(f"Device: {device}")
-    print(f"Model: {model.model_name}")
+    if  model.model_name:
+        print(f"Model: {model.model_name}")
     print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
     
     for epoch in range(num_epochs):

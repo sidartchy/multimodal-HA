@@ -1,0 +1,27 @@
+{
+  "image_size": [
+    224,
+    224
+  ],
+  "batch_size": 32,
+  "num_classes": 2,
+  "class_names": [
+    "ACK",
+    "BCC"
+  ],
+  "train_samples": 945,
+  "val_samples": 315,
+  "test_samples": 315,
+  "image_normalization": {
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  }
+}
