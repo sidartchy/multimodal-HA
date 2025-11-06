@@ -36,6 +36,145 @@ class CNNBaseline(nn.Module):
     
     def forward(self, x):
         return self.backbone(x)
+    
+
+class EfficientNetBaseline(nn.Module):
+    def __init__(self, model_name= 'EfficientNet_Base', pretrained=True):
+        super(EfficientNetBaseline, self).__init__()
+
+        self.model_name = model_name
+
+        # Load pretrained backbone
+        if pretrained:
+            self.backbone = models.efficientnet_b2(
+                weights=models.EfficientNet_B2_Weights.IMAGENET1K_V1
+            )
+        else:
+            self.backbone = models.efficientnet_b2(weights=None)
+
+        # Unfreeze last feature blocks
+        for name, param in self.backbone.named_parameters():
+            if "features.6" in name or "features.7" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+
+        # Replace classifier
+        in_features = self.backbone.classifier[1].in_features
+        self.backbone.classifier[1] =  nn.Sequential(
+            nn.Dropout(p=0.4),
+            nn.Linear(in_features, 128)
+        )
+
+    def forward(self, x):
+        return self.backbone(x)
+
+
+
+
+class EfficientNetClassifier(nn.Module):
+    def __init__(self, num_classes, model_name= 'EfficientNet_Base', pretrained=True):
+        super(EfficientNetClassifier, self).__init__()
+
+        self.model_name = model_name
+
+        # Load pretrained backbone
+        if pretrained:
+            self.backbone = models.efficientnet_b2(
+                weights=models.EfficientNet_B2_Weights.IMAGENET1K_V1
+            )
+        else:
+            self.backbone = models.efficientnet_b2(weights=None)
+
+        # Unfreeze last feature blocks
+        for name, param in self.backbone.named_parameters():
+            if "features.6" in name or "features.7" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+
+        # Replace classifier
+        in_features = self.backbone.classifier[1].in_features
+        self.backbone.classifier[1] =  nn.Sequential(
+            nn.Dropout(p=0.4),
+            nn.Linear(in_features, num_classes)
+        )
+
+    def forward(self, x):
+        return self.backbone(x)
+
+
+
+class HybridImageDominantFusion(nn.Module):
+    def __init__(
+        self,
+        image_model,
+        text_embedding_dim=768,
+        image_embedding_dim=128,
+        reduced_text_dim=64,
+        num_classes=2,
+        image_weight=0.75,  
+        fusion_type='weighted'    ## this is preferred
+    ):
+        super(HybridImageDominantFusion, self).__init__()
+        self.image_model = image_model
+        self.image_weight = image_weight
+        self.fusion_type = fusion_type
+
+        # Image Encoder
+        for param in self.image_model.parameters():
+            param.requires_grad = False  # freeze image model (or unfreeze later for fine-tuning)
+
+    
+        # compress text embeddings to smaller dimension ( projecting text embeddings to lower dim)
+        self.text_projector = nn.Sequential(
+            nn.Linear(text_embedding_dim, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, reduced_text_dim),
+            nn.ReLU()
+        )
+
+        # Fusion logic
+        # If concat, we just join both
+        if fusion_type == 'concat':
+            fusion_input_dim = image_embedding_dim + reduced_text_dim
+        elif fusion_type == 'weighted':
+            # both projected to same dim to allow weighted sum
+            self.image_projection = nn.Linear(image_embedding_dim, reduced_text_dim)
+            fusion_input_dim = reduced_text_dim
+        else:
+            raise ValueError(f"Unknown fusion type: {fusion_type}")
+
+        # Classifier Head
+        self.classifier = nn.Sequential(
+            nn.Linear(fusion_input_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(64, num_classes)
+        )
+
+    def forward(self, image, text_embedding):
+        # Get image and text representations
+        image_embedding = self.image_model(image)         # [batch, 128]
+        text_embedding = self.text_projector(text_embedding)  # [batch, reduced_text_dim]
+
+        if self.fusion_type == 'concat':
+            # Concatenate but text is already low-dimensional
+            fused = torch.cat((image_embedding, text_embedding), dim=1)
+
+        elif self.fusion_type == 'weighted':
+            # Project image embedding to same dim as text for weighted fusion
+            image_proj = self.image_projection(image_embedding)  # [batch, reduced_text_dim]
+
+            # Weighted hybrid fusion: image dominant
+            fused = self.image_weight * image_proj + (1 - self.image_weight) * text_embedding
+
+        output = self.classifier(fused)
+        return output
 
 
 class EarlyStopping:

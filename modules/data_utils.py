@@ -100,7 +100,7 @@ def get_image_transforms():
 
 
 def load_processed_data():
-    """Load preprocessed data from Phase 2"""
+    """Load preprocessed data"""
     
     # Load dataframes
     train_df = pd.read_csv('processed_data/train_df.csv')
@@ -113,6 +113,26 @@ def load_processed_data():
     
     # Load preprocessing config
     with open('processed_data/preprocessing_config.json', 'r') as f:
+        config = json.load(f)
+    
+    return train_df, val_df, test_df, label_encoder, config
+
+
+
+def load_processed_data_v2():
+    """Load preprocessed data ---   V2"""
+    
+    # Load dataframes
+    train_df = pd.read_csv('processed_data_v2/train_df.csv')
+    val_df = pd.read_csv('processed_data_v2/val_df.csv')
+    test_df = pd.read_csv('processed_data_v2/test_df.csv')
+    
+    # Load label encoder
+    with open('processed_data_v2/label_encoder.pkl', 'rb') as f:
+        label_encoder = pickle.load(f)
+    
+    # Load preprocessing config
+    with open('processed_data_v2/preprocessing_config.json', 'r') as f:
         config = json.load(f)
     
     return train_df, val_df, test_df, label_encoder, config

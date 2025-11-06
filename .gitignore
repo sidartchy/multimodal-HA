@@ -6,6 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+*.npy
+*.pth
+
 # Virtual environments
 .venv
 archive/
